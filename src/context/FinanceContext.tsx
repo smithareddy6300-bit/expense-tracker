@@ -16,6 +16,12 @@ import {
   INITIAL_TRANSACTIONS,
   SUPPORTED_CURRENCIES,
 } from '../data/initialData';
+import {
+  budgetApi,
+  goalApi,
+  recurringApi,
+  transactionApi,
+} from '../api/client';
 
 interface FinanceContextType {
   currency: Currency;
@@ -385,21 +391,25 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       id: `tx-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     };
     setTransactions((prev) => [newTx, ...prev]);
+    transactionApi.create(tx).catch(() => {});
   };
 
   const updateTransaction = (id: string, updatedFields: Partial<Transaction>) => {
     setTransactions((prev) =>
       prev.map((tx) => (tx.id === id ? { ...tx, ...updatedFields } : tx))
     );
+    transactionApi.update(id, updatedFields).catch(() => {});
   };
 
   const deleteTransaction = (id: string) => {
     setTransactions((prev) => prev.filter((tx) => tx.id !== id));
+    transactionApi.delete(id).catch(() => {});
   };
 
   const batchDeleteTransactions = (ids: string[]) => {
     const idSet = new Set(ids);
     setTransactions((prev) => prev.filter((tx) => !idSet.has(tx.id)));
+    transactionApi.batchDelete(ids).catch(() => {});
   };
 
   const updateBudget = (category: ExpenseCategory, monthlyLimit: number) => {
@@ -412,6 +422,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
       return [...prev, { category, monthlyLimit }];
     });
+    budgetApi.update(category, monthlyLimit).catch(() => {});
   };
 
   const addGoal = (goalData: Omit<SavingsGoal, 'id'>) => {
@@ -420,12 +431,14 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       id: `goal-${Date.now()}`,
     };
     setGoals((prev) => [...prev, newGoal]);
+    goalApi.create(goalData).catch(() => {});
   };
 
   const updateGoal = (id: string, goalData: Partial<SavingsGoal>) => {
     setGoals((prev) =>
       prev.map((g) => (g.id === id ? { ...g, ...goalData } : g))
     );
+    goalApi.update(id, goalData).catch(() => {});
   };
 
   const adjustGoalFunds = (id: string, delta: number) => {
@@ -433,6 +446,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       prev.map((g) => {
         if (g.id !== id) return g;
         const updatedAmount = Math.max(0, g.currentAmount + delta);
+        goalApi.update(id, { currentAmount: updatedAmount }).catch(() => {});
         return { ...g, currentAmount: updatedAmount };
       })
     );
@@ -440,6 +454,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const deleteGoal = (id: string) => {
     setGoals((prev) => prev.filter((g) => g.id !== id));
+    goalApi.delete(id).catch(() => {});
   };
 
   const addRecurringBill = (billData: Omit<RecurringBill, 'id'>) => {
@@ -448,16 +463,19 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       id: `rec-${Date.now()}`,
     };
     setRecurringBills((prev) => [...prev, newBill]);
+    recurringApi.create(billData).catch(() => {});
   };
 
   const toggleRecurringBill = (id: string) => {
     setRecurringBills((prev) =>
       prev.map((b) => (b.id === id ? { ...b, isActive: !b.isActive } : b))
     );
+    recurringApi.toggle(id).catch(() => {});
   };
 
   const deleteRecurringBill = (id: string) => {
     setRecurringBills((prev) => prev.filter((b) => b.id !== id));
+    recurringApi.delete(id).catch(() => {});
   };
 
   // Data Export & Import

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '../types/auth';
+import { authApi } from '../api/client';
 
 interface AuthContextType {
   user: User | null;
@@ -59,7 +60,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // fallback
       }
     }
-    // Default to initial logged-in user so existing experience continues seamlessly, or allow them to test logout
     return DEFAULT_USERS[0];
   });
 
@@ -82,14 +82,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     password: string
   ): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
-    // Simulate slight network delay for realism
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    setIsLoading(false);
 
+    try {
+      // First try backend API endpoint
+      const response = await authApi.login(email, password);
+      if (response && response.user) {
+        setUser(response.user);
+        setIsLoading(false);
+        return { success: true };
+      }
+    } catch {
+      // If backend network error, fall back to local client auth store
+    }
+
+    // Local fallback check
     const normalizedEmail = email.trim().toLowerCase();
     const existing = usersDb.find(
       (u) => u.email.toLowerCase() === normalizedEmail
     );
+
+    setIsLoading(false);
 
     if (!existing) {
       return { success: false, error: 'No account found with this email address.' };
@@ -110,22 +122,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     password: string
   ): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    setIsLoading(false);
 
     const trimmedName = name.trim();
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!trimmedName) {
+      setIsLoading(false);
       return { success: false, error: 'Please enter your full name.' };
     }
 
     if (!normalizedEmail || !normalizedEmail.includes('@')) {
+      setIsLoading(false);
       return { success: false, error: 'Please enter a valid email address.' };
     }
 
     if (password.length < 6) {
+      setIsLoading(false);
       return { success: false, error: 'Password must be at least 6 characters long.' };
+    }
+
+    try {
+      // Try backend API endpoint
+      const response = await authApi.register(trimmedName, normalizedEmail, password);
+      if (response && response.user) {
+        setUser(response.user);
+        setIsLoading(false);
+        return { success: true };
+      }
+    } catch {
+      // Fallback to local store
     }
 
     const existing = usersDb.find(
@@ -133,6 +158,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     if (existing) {
+      setIsLoading(false);
       return { success: false, error: 'An account with this email already exists. Please sign in.' };
     }
 
@@ -145,9 +171,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     setUsersDb((prev) => [...prev, newUserObj]);
-
     const { passwordHash: _, ...profile } = newUserObj;
     setUser(profile);
+    setIsLoading(false);
     return { success: true };
   };
 
